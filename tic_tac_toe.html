@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Tic-Tac-Toe</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #89cff0, #4682b4);
+            color: #fff;
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            background-color: #5a9bd4;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .cell:hover:not(.taken) {
+            background-color: #4b8cda;
+            transform: scale(1.05);
+        }
+        .cell.taken {
+            cursor: not-allowed;
+        }
+        .scoreboard {
+            margin: 20px;
+            text-align: center;
+        }
+        .score {
+            margin: 10px;
+            font-size: 1.2rem;
+        }
+        .button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            color: white;
+            background-color: #3a6ea5;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #2d5c92;
+        }
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #4682b4;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+        .popup button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            background-color: #3a6ea5;
+            color: white;
+            cursor: pointer;
+        }
+        .popup button:hover {
+            background-color: #2d5c92;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Advanced Tic-Tac-Toe</h1>
+    <div class="scoreboard">
+        <div class="score">Player X: <span id="playerX-score">0</span></div>
+        <div class="score">Player O: <span id="playerO-score">0</span></div>
+        <div class="score">Ties: <span id="tie-score">0</span></div>
+    </div>
+    <div class="board" id="board"></div>
+    <button class="button" id="reset-button">Reset Game</button>
+    <button class="button" id="toggle-mode">Switch to Computer Mode</button>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="popup" id="popup">
+        <h2 id="winner-message"></h2>
+        <button id="close-popup">Close</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const resetButton = document.getElementById('reset-button');
+        const toggleModeButton = document.getElementById('toggle-mode');
+        const playerXScoreElem = document.getElementById('playerX-score');
+        const playerOScoreElem = document.getElementById('playerO-score');
+        const tieScoreElem = document.getElementById('tie-score');
+        const popup = document.getElementById('popup');
+        const overlay = document.getElementById('overlay');
+        const winnerMessage = document.getElementById('winner-message');
+        const closePopup = document.getElementById('close-popup');
+
+        let currentPlayer = 'X';
+        let gameBoard = Array(9).fill(null);
+        let scores = { X: 0, O: 0, Ties: 0 };
+        let isComputerMode = false;
+
+        function createBoard() {
+            board.innerHTML = '';
+            gameBoard.forEach((_, idx) => {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.index = idx;
+                cell.addEventListener('click', handleMove);
+                board.appendChild(cell);
+            });
+        }
+
+        function handleMove(event) {
+            const index = event.target.dataset.index;
+            if (gameBoard[index] || checkWinner()) return;
+
+            gameBoard[index] = currentPlayer;
+            event.target.textContent = currentPlayer;
+            event.target.classList.add('taken');
+
+            const winner = checkWinner();
+            if (winner) {
+                updateScores(winner);
+                showPopup(winner === 'Tie' ? "It's a tie!" : `${winner} wins!`);
+            } else {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                if (isComputerMode && currentPlayer === 'O') {
+                    computerMove();
+                }
+            }
+        }
+
+        function computerMove() {
+            const emptyCells = gameBoard.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
+            const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+
+            setTimeout(() => {
+                const cell = board.querySelector(`[data-index='${randomIndex}']`);
+                cell.click();
+            }, 500);
+        }
+
+        function checkWinner() {
+            const winPatterns = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+
+            for (const pattern of winPatterns) {
+                const [a, b, c] = pattern;
+                if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+                    return gameBoard[a];
+                }
+            }
+
+            return gameBoard.includes(null) ? null : 'Tie';
+        }
+
+        function updateScores(winner) {
+            if (winner === 'Tie') {
+                scores.Ties++;
+                tieScoreElem.textContent = scores.Ties;
+            } else {
+                scores[winner]++;
+                playerXScoreElem.textContent = scores.X;
+                playerOScoreElem.textContent = scores.O;
+            }
+        }
+
+        function showPopup(message) {
+            winnerMessage.textContent = message;
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+
+        closePopup.addEventListener('click', () => {
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        });
+
+        resetButton.addEventListener('click', () => {
+            gameBoard = Array(9).fill(null);
+            currentPlayer = 'X';
+            createBoard();
+        });
+
+        toggleModeButton.addEventListener('click', () => {
+            isComputerMode = !isComputerMode;
+            toggleModeButton.textContent = isComputerMode ? 'Switch to 2-Player Mode' : 'Switch to Computer Mode';
+            resetButton.click();
+        });
+
+        createBoard();
+    </script>
+</body>
+</html>
